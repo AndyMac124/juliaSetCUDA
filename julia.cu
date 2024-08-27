@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <cuda_runtime.h>
 #include "bmpfile.h"
+#include "julia_utils.h"
 
-/*Julia values*/
+// Julia values
 #define RESOLUTION 1000.0
 #define XCENTER 0
 #define YCENTER 0
@@ -12,20 +13,18 @@
 #define X0 0.285
 #define Y0 0.01
 
-/*Colour Values*/
+// Colour Values
 #define COLOUR_DEPTH 255
 #define COLOUR_MAX 240.0
 #define GRADIENT_COLOUR_MAX 230.0
 
 #define FILENAME "my_julia_fractal.bmp"
 
-// Helper functions and utilities to work with CUDA
-//#include <helper_functions.h>
 
 /**
    * Computes the color gradiant
    * color: the output vector
-   * x: the gradiant (beetween 0 and 360)
+   * x: the gradiant (between 0 and 360)
    * min and max: variation of the RGB channels (Move3D 0 -> 1)
    * Check wiki for more details on the colour science: en.wikipedia.org/wiki/HSL_and_HSV
    */
@@ -147,78 +146,109 @@ __global__ void juliaSetKernel(float* output, int width, int height, int xoffset
         }
 }
 
-int parse_args(int argc, char *argv[], int *width, int *height)
+void parse_args(int argc, char *argv[], int *width, int *height)
 {
         if ((argc != 3) || ((*width = atoi(argv[1])) <= 0) || ((*height = atoi(argv[2])) <= 0)) {
                 fprintf(stderr, "Usage: %s <image width> <image height>\n", argv[0]);
-                return(-1);
+                exit(EXIT_FAILURE);
         }
+}
 
-        return(0);
+void set_pixels(int height, int width, float *h_result, bmpfile_t *bmp)
+{
+        rgb_pixel_t pixel = {0, 0, 0, 0};
+        for (int y = 0; y < height; ++y) {
+                for (int x = 0; x < width; ++x) {
+                        int index = (y * width + x) * 3;
+                        pixel.red = h_result[index];
+                        pixel.green = h_result[index + 1];
+                        pixel.blue = h_result[index + 2];
+
+                        // Set the pixel in the bitmap
+                        if (bmp_set_pixel(bmp, x, y, pixel) == 0) {
+                                fprintf(stderr, "Failed to set pixel (error code %s)!\n", cudaGetErrorString(err));
+                        }
+                }
+        }
 }
 
 int main(int argc, char **argv) {
-        int width, height;
-        if (parse_args(argc, argv, &width, &height) != 0) {
-                exit(EXIT_FAILURE);
-        }
+        // Error code to check return values for CUDA calls
+        cudaError_t err = cudaSuccess;
 
-        bmpfile_t *bmp;
+        int width, height;
+
+        parse_args(argc, argv, &width, &height);
+
+        // Create bitmap image of WxH with 32 bits for each pixel,
+        // with 8 bits for RGBA channels
+        bmpfile_t *bmp = bmp_create(width, height, 32);
 
         // Offset for the Julia image in the bitmap image
         int xoffset = -(width - 1) / 2;
         int yoffset = (height - 1) / 2;
 
-        // Create bitmap image of WxH with 32 bits for each pixel,
-        // with 8 bits for RGBA channels
-        bmp = bmp_create(width, height, 32);
-
         const int NUM_ELEMENTS = (width * height);
         size_t size = NUM_ELEMENTS * 3 * sizeof(float);
 
-        float* h_result = (float*)malloc(size);
+        if (float* h_result = (float*)malloc(size) == NULL)
+        {
+                fprintf(stderr, "Failed to allocate host vectors!\n");
+                exit(EXIT_FAILURE);
+        }
+
         float* d_result;
-        cudaMalloc((void**)&d_result, size);
+        err = cudaMalloc((void**)&d_result, size);
+        if (err != cudaSuccess)
+        {
+                fprintf(stderr, "Failed to allocate device result memory (error code %s)!\n", cudaGetErrorString(err));
+                exit(EXIT_FAILURE);
+        }
 
         dim3 threadsPerBlock(8, 8);
         dim3 blocksPerGrid((width + threadsPerBlock.x - 1) / threadsPerBlock.x, (height + threadsPerBlock.y - 1) / threadsPerBlock.y);
+
         printf("Launching kernel with %d blocks and %d threads per block\n",
                blocksPerGrid.x * blocksPerGrid.y, threadsPerBlock.x * threadsPerBlock.y);
 
         juliaSetKernel<<<blocksPerGrid, threadsPerBlock>>>(d_result, width, height, xoffset, yoffset);
-
-        cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) {
-                fprintf(stderr, "CUDA error: %s\n", cudaGetErrorString(err));
-                exit(EXIT_FAILURE);
-        }
-
-        cudaMemcpy(h_result, d_result, size, cudaMemcpyDeviceToHost);
-
         err = cudaGetLastError();
         if (err != cudaSuccess) {
                 fprintf(stderr, "CUDA error: %s\n", cudaGetErrorString(err));
                 exit(EXIT_FAILURE);
         }
 
-        rgb_pixel_t pixel = {0, 0, 0, 0};
-        for (int row = 0; row < height; ++row) {
-                for (int col = 0; col < width; ++col) {
-                        int index = (row * width + col) * 3;
-                        pixel.red = h_result[index];
-                        pixel.green = h_result[index + 1];
-                        pixel.blue = h_result[index + 2];
-
-                        // Set the pixel in the bitmap
-                        bmp_set_pixel(bmp, col, row, pixel);
-                }
+        err = cudaMemcpy(h_result, d_result, size, cudaMemcpyDeviceToHost);
+        if (err != cudaSuccess) {
+                fprintf(stderr, "CUDA error: %s\n", cudaGetErrorString(err));
+                exit(EXIT_FAILURE);
         }
 
-        bmp_save(bmp, FILENAME);
+        set_pixels(height, width, &h_result, &bmp);
+
+        if (bmp_save(bmp, FILENAME) == 0) {
+                fprintf(stderr, "Failed to save bmp file (error code %s)!\n", cudaGetErrorString(err));
+        }
+
         bmp_destroy(bmp);
 
-        free(h_result);
-        cudaFree(d_result);
+        if (h_result != NULL) {
+                free(h_result);
+        }
+
+        err = cudaFree(d_result);
+        if (err != cudaSuccess)
+        {
+                fprintf(stderr, "Failed to free device memory (error code %s)!\n", cudaGetErrorString(err));
+                exit(EXIT_FAILURE);
+        }
+
+        err = cudaDeviceReset();
+        if (err != cudaSuccess)
+        {
+                fprintf(stderr, "Failed to deinitialize the device! error=%s\n", cudaGetErrorString(err));
+                exit(EXIT_FAILURE);
+        }
 
         return 0;
 }
