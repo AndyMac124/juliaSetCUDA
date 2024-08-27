@@ -172,6 +172,14 @@ void set_pixels(int height, int width, float *h_result, bmpfile_t *bmp)
         }
 }
 
+void checkError(cudaError_t err, char *error_message)
+{
+        if (err != cudaSuccess) {
+                fprintf(stderr, "%s (error code %s)!\n", error_message, cudaGetErrorString(err));
+                exit(EXIT_FAILURE);
+        }
+}
+
 int main(int argc, char **argv) {
         // Error code to check return values for CUDA calls
         cudaError_t err = cudaSuccess;
@@ -198,12 +206,8 @@ int main(int argc, char **argv) {
         }
 
         float* d_result;
-        err = cudaMalloc((void**)&d_result, size);
-        if (err != cudaSuccess)
-        {
-                fprintf(stderr, "Failed to allocate device result memory (error code %s)!\n", cudaGetErrorString(err));
-                exit(EXIT_FAILURE);
-        }
+        cudaMalloc((void**)&d_result, size);
+        checkError(err, "Failed to allocate memory for device");
 
         dim3 threadsPerBlock(8, 8);
         dim3 blocksPerGrid((width + threadsPerBlock.x - 1) / threadsPerBlock.x, (height + threadsPerBlock.y - 1) / threadsPerBlock.y);
@@ -213,16 +217,10 @@ int main(int argc, char **argv) {
 
         juliaSetKernel<<<blocksPerGrid, threadsPerBlock>>>(d_result, width, height, xoffset, yoffset);
         err = cudaGetLastError();
-        if (err != cudaSuccess) {
-                fprintf(stderr, "CUDA error: %s\n", cudaGetErrorString(err));
-                exit(EXIT_FAILURE);
-        }
+        checkError(err, "Failed in call to juliaSetKernel");
 
         err = cudaMemcpy(h_result, d_result, size, cudaMemcpyDeviceToHost);
-        if (err != cudaSuccess) {
-                fprintf(stderr, "CUDA error: %s\n", cudaGetErrorString(err));
-                exit(EXIT_FAILURE);
-        }
+        checkError(err, "Failed to copy d_result to Host");
 
         set_pixels(height, width, &h_result, &bmp);
 
@@ -237,18 +235,10 @@ int main(int argc, char **argv) {
         }
 
         err = cudaFree(d_result);
-        if (err != cudaSuccess)
-        {
-                fprintf(stderr, "Failed to free device memory (error code %s)!\n", cudaGetErrorString(err));
-                exit(EXIT_FAILURE);
-        }
+        checkError(err, "Failed to free device memory");
 
         err = cudaDeviceReset();
-        if (err != cudaSuccess)
-        {
-                fprintf(stderr, "Failed to deinitialize the device! error=%s\n", cudaGetErrorString(err));
-                exit(EXIT_FAILURE);
-        }
+        checkError(err, "Failed to deinitialize the device");
 
         return 0;
 }
