@@ -42,7 +42,8 @@
 #include "macros.h"
 
 #define FILENAME "my_julia_fractal.bmp"
-
+#define BLOCK_SIZE 16
+#define PIXEL_BITS 32
 
 /**
  * main() - Main function for the julia program.
@@ -67,54 +68,48 @@ int main(int argc, char **argv) {
         parse_args(argc, argv, &width, &height);
 
         // Bitmap with 32 bits for each pixel (RGBA)
-        bmpfile_t *bmp = bmp_create(width, height, 32);
+        bmpfile_t *bmp = bmp_create(width, height, PIXEL_BITS);
 
         // Offset for the Julia image in the bitmap image
-        int xoffset = -(width - 1) / 2;
-        int yoffset = (height - 1) / 2;
+        int xOffSet = -(width - 1) / 2;
+        int yOffSet = (height - 1) / 2;
 
         // Size of image
         size_t size = width * height * RGB_LENGTH * sizeof(float);
 
         // Pointer to memory for hosts pixels
-        float* h_pixels = (float*)malloc(size);
-        if (h_result == NULL)
+        float* hPixels = (float*)malloc(size);
+        if (hPixels == NULL)
         {
                 fprintf(stderr, "Failed to allocate host vectors!\n");
                 exit(EXIT_FAILURE);
         }
 
         // Pointer to devices pixels
-        float* d_pixels;
-        err = cudaMalloc((void**)&d_pixels, size);
-        checkError(err, "Failed to allocate memory for device");
+        float* dPixels;
+        err = cudaMalloc((void**)&dPixels, size);
+        check_error(err, "Failed to allocate memory for device");
 
-        //
-        dim3 threadsPerBlock(8, 8);
-        dim3 blocksPerGrid((width + threadsPerBlock.x - 1) /
-                threadsPerBlock.x, (height + threadsPerBlock.y - 1)
-                        / threadsPerBlock.y);
-
-        // TODO Remove this
-        printf("Launching kernel with %d blocks and %d threads per block\n",
-               blocksPerGrid.x * blocksPerGrid.y,
-               threadsPerBlock.x * threadsPerBlock.y);
+        // Multiple of 32 for warp sizes
+        dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
+        dim3 dimGrid((width + dimBlock.x - 1) / dimBlock.x,
+                     (height + dimBlock.y - 1) / dimBlock.y);
 
         // Kernel call
-        juliaSetKernel<<<blocksPerGrid, threadsPerBlock>>>(d_pixels,
-                                                           width,
-                                                           height,
-                                                           xoffset,
-                                                           yoffset);
+        julia_set_kernel<<<dimGrid, dimBlock>>>(dPixels,
+                                              width,
+                                              height,
+                                              xOffSet,
+                                              yOffSet);
 
         err = cudaGetLastError();
-        checkError(err, "Failed in call to juliaSetKernel");
+        check_error(err, "Failed in call to juliaSetKernel");
 
         // Copying results back to host
-        err = cudaMemcpy(h_pixels, d_pixels, size, cudaMemcpyDeviceToHost);
-        checkError(err, "Failed to copy d_result to Host");
+        err = cudaMemcpy(hPixels, dPixels, size, cudaMemcpyDeviceToHost);
+        check_error(err, "Failed to copy d_result to Host");
 
-        set_pixels(height, width, h_pixels, bmp);
+        set_pixels(height, width, hPixels, bmp);
 
         // Attempting to save new file
         if (bmp_save(bmp, FILENAME) == 0) {
@@ -124,13 +119,13 @@ int main(int argc, char **argv) {
 
         // Freeing up resources
         bmp_destroy(bmp);
-        free(h_pixels);
-        err = cudaFree(d_pixels);
-        checkError(err, "Failed to free device memory");
+        free(hPixels);
+        err = cudaFree(dPixels);
+        check_error(err, "Failed to free device memory");
 
         // Deinitialising for good practice
         err = cudaDeviceReset();
-        checkError(err, "Failed to deinitialise the device");
+        check_error(err, "Failed to deinitialise the device");
 
         return 0;
 }

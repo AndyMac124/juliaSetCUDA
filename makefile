@@ -20,7 +20,7 @@ bmpfile.o: bmpfile.c bmpfile.h
 	${COMPILER} ${CFLAGS} -c bmpfile.c -o bmpfile.o
 
 run: julia
-	${COMPILER} ${ARGS}
+	./julia ${ARGS}
 
 clean:
 	rm -f *.o *~ ${EXES}

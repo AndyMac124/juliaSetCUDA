@@ -82,7 +82,7 @@ __device__ void ground_color_mix(double* color, double x, double min,
  * Return: void (pass by reference).
  */
 __global__ void julia_set_kernel(float* pixel, int width, int height,
-                                 int xoffset, int yoffset)
+                                 int xOffSet, int yOffSet)
 {
         // Calculate the x and y position for the pixel
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -94,19 +94,19 @@ __global__ void julia_set_kernel(float* pixel, int width, int height,
                 int pixelIndex = idy * width + idx;
 
                 // Determine where in the Julia set the pixel is referencing
-                double x = XCENTER + (xoffset + idx) / RESOLUTION;
-                double y = YCENTER + (yoffset - idy) / RESOLUTION;
+                double x = XCENTER + (xOffSet + idx) / RESOLUTION;
+                double y = YCENTER + (yOffSet - idy) / RESOLUTION;
 
                 // Values for this iteration
                 double a = 0;
                 double b = 0;
 
                 // Previous value in the iteration
-                double aold = x;
-                double bold = y;
+                double aOld = x;
+                double bOld = y;
 
                 // Magnitude squared of the complex number (z)
-                double zmagsqr = 0;
+                double zMagSqr = 0;
 
                 // Tracks number of iterations to influence pixel colour
                 int iter = 0;
@@ -116,28 +116,28 @@ __global__ void julia_set_kernel(float* pixel, int width, int height,
                  * is within max bound squared continues to perform the
                  * Julia algorithm
                  */
-                while (iter < MAX_ITER && zmagsqr <= MAX_BOUND * MAX_BOUND) {
+                while (iter < MAX_ITER && zMagSqr <= MAX_BOUND * MAX_BOUND) {
                         ++iter;
-                        a = (aold * aold) - (bold * bold) + X0;
-                        b = 2.0 * aold * bold + Y0;
+                        a = (aOld * aOld) - (bOld * bOld) + X0;
+                        b = 2.0 * aOld * bOld + Y0;
 
-                        zmagsqr = a * a + b * b;
+                        zMagSqr = a * a + b * b;
 
-                        aold = a;
-                        bold = b;
+                        aOld = a;
+                        bOld = b;
                 }
 
                 // Value used to determine the pixel's colour based on
                 // the number of iterations
-                double x_col;
+                double xCol;
 
                 // RGB colours for the pixel
                 double color[RGB_LENGTH];
 
                 // Generate the colour of the pixel from the iter value
-                x_col = (COLOUR_MAX - ((((float) iter / ((float) MAX_ITER) *
+                xCol = (COLOUR_MAX - ((((float) iter / ((float) MAX_ITER) *
                                          GRADIENT_COLOUR_MAX))));
-                GroundColorMix(color, x_col, 1, COLOUR_DEPTH);
+                ground_color_mix(color, xCol, 1, COLOUR_DEPTH);
 
                 // Setting the pixel values in the 1D array
                 pixel[pixelIndex * RGB_LENGTH + R] = color[R];

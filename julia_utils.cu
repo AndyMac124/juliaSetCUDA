@@ -5,7 +5,7 @@
  * UNE EMAIL: amcken33@myune.edu.au
  * STUDENT NUMBER: 220263507
  *
- * PURPOSE: C based Utility functions to aid julia program.
+ * PURPOSE: C based Utility functions to aid the julia program.
  *
  *H*/
 
@@ -52,11 +52,11 @@ void parse_args(int argc, char *argv[], int *width, int *height)
  *
  * Return: void (pass by reference).
  */
-void check_error(cudaError_t err, const char *error_message)
+void check_error(cudaError_t error, const char *errorMessage)
 {
-        if (err != cudaSuccess) {
-                fprintf(stderr, "%s (error code %s)!\n", error_message,
-                        cudaGetErrorString(err));
+        if (error != cudaSuccess) {
+                fprintf(stderr, "%s (error code %s)!\n", errorMessage,
+                        cudaGetErrorString(error));
                 exit(EXIT_FAILURE);
         }
 }
@@ -74,7 +74,7 @@ void check_error(cudaError_t err, const char *error_message)
  *
  * Return: void (pass by reference).
  */
-void set_pixels(int height, int width, float *h_result, bmpfile_t *bmp)
+void set_pixels(int height, int width, float *hPixels, bmpfile_t *bmp)
 {
         // Initialising values to zero
         rgb_pixel_t pixel = {0, 0, 0, 0};
@@ -85,14 +85,13 @@ void set_pixels(int height, int width, float *h_result, bmpfile_t *bmp)
                         int index = (y * width + x) * RGB_LENGTH;
 
                         // Offset for each RGB value
-                        pixel.red = h_result[index + R];
-                        pixel.green = h_result[index + G];
-                        pixel.blue = h_result[index + B];
+                        pixel.red = hPixels[index + R];
+                        pixel.green = hPixels[index + G];
+                        pixel.blue = hPixels[index + B];
 
                         // Set the pixel in the bitmap
                         if (bmp_set_pixel(bmp, x, y, pixel) == 0) {
-                                fprintf(stderr, "Failed to set pixel "
-                                                "(error code %s)!\n",
+                                fprintf(stderr, "Failed to set pixel: %s!\n",
                                                 cudaGetErrorString(
                                                         cudaGetLastError()));
                         }

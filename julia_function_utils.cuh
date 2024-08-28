@@ -20,6 +20,6 @@
 __device__ void ground_color_mix(double* color, double x, double min,
                                  double max);
 __global__ void julia_set_kernel(float* pixel, int width, int height,
-                                 int xoffset, int yoffset);
+                                 int xOffSet, int yOffSet);
 
 #endif //A4_JULIA_FUNCTION_UTILS_CUH
