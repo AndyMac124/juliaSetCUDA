@@ -9,4 +9,6 @@
 #define WIDTH_ARG 1
 #define HEIGHT_ARG 2
 
+#define BLOCK_SIZE 16
+
 #endif //A4_MACROS_H

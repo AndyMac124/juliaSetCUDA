@@ -91,7 +91,7 @@ void set_pixels(int height, int width, float *hPixels, bmpfile_t *bmp)
 
                         // Set the pixel in the bitmap
                         if (bmp_set_pixel(bmp, x, y, pixel) == 0) {
-                                fprintf(stderr, "Failed to set pixel: %s!\n",
+                                fprintf(stderr, "Failed to set pixel: %s\n",
                                                 cudaGetErrorString(
                                                         cudaGetLastError()));
                         }

@@ -136,7 +136,7 @@ __global__ void julia_set_kernel(float* pixel, int width, int height,
 
                 // Generate the colour of the pixel from the iter value
                 xCol = (COLOUR_MAX - ((((float) iter / ((float) MAX_ITER) *
-                                         GRADIENT_COLOUR_MAX))));
+                                        GRADIENT_COLOUR_MAX))));
                 ground_color_mix(color, xCol, 1, COLOUR_DEPTH);
 
                 // Setting the pixel values in the 1D array

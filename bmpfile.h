@@ -116,8 +116,7 @@ typedef struct {
 typedef struct _bmpfile bmpfile_t;
 
 bmpfile_t *bmp_create(uint32_t width, uint32_t height, uint32_t depth);
-/* TODO */
-/* bmpfile_t *bmp_create_from_file(const char *filename); */
+
 void bmp_destroy(bmpfile_t *bmp);
 
 bmp_header_t bmp_get_header(bmpfile_t *bmp);

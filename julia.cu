@@ -42,7 +42,6 @@
 #include "macros.h"
 
 #define FILENAME "my_julia_fractal.bmp"
-#define BLOCK_SIZE 16
 #define PIXEL_BITS 32
 
 /**
