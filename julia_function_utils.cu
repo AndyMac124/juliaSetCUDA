@@ -21,7 +21,7 @@
  * @arg3: min variation of the RGB channels
  * @arg4: max variation of the RGB channels
  *
- * Reference:
+ * Reference: Code provided with the juila.c program for this assignment
  *
  * Sets the RGB values based on the gradiant and min/max values.
  *
@@ -76,6 +76,8 @@ __device__ void ground_color_mix(double* color, double x, double min,
  * @arg4: x offset of the julia image
  * @arg5: y offset of the julia image
  *
+ * Reference: Base structure modified from the julia.c program.
+ *
  * Executes the julia function for a single pixel to calculate and
  * set its RGB value.
  *
@@ -84,6 +86,22 @@ __device__ void ground_color_mix(double* color, double x, double min,
 __global__ void julia_set_kernel(float* pixel, int width, int height,
                                  int xOffSet, int yOffSet)
 {
+        // For pre-calculating ground colour mix to avoid
+        // repetitive computation
+        __shared__ double shared_colour_mix[360][RGB_LENGTH];
+
+        // First thread will set the colours
+        if (threadIdx.x == 0 && threadIdx.y == 0) {
+                for (int i = 0; i < 360; i++) {
+                        double x = (double) i;
+                        ground_color_mix(shared_colour_mix[i], x, 1,
+                                         COLOUR_DEPTH);
+                }
+        }
+
+        // Syncing all threads so the colours are set
+        __syncthreads();
+
         // Calculate the x and y position for the pixel
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
         int idy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -131,13 +149,14 @@ __global__ void julia_set_kernel(float* pixel, int width, int height,
                 // the number of iterations
                 double xCol;
 
-                // RGB colours for the pixel
-                double color[RGB_LENGTH];
-
                 // Generate the colour of the pixel from the iter value
                 xCol = (COLOUR_MAX - ((((float) iter / ((float) MAX_ITER) *
                                         GRADIENT_COLOUR_MAX))));
-                ground_color_mix(color, xCol, 1, COLOUR_DEPTH);
+
+                // Map the colour to an index in the shared colour mixes
+                int xColIndex = (int)(xCol) % 360;
+                // Set the pixel colours from the shared colour mixes
+                double* color = shared_colour_mix[xColIndex];
 
                 // Setting the pixel values in the 1D array
                 pixel[pixelIndex * RGB_LENGTH + R] = color[R];

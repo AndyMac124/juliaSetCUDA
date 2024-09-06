@@ -59,7 +59,8 @@
  *
  * Return: Int, zero on success, non-zero on failure.
  */
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
         // Error code to check return values for CUDA calls
         cudaError_t err = cudaSuccess;
 
@@ -78,8 +79,7 @@ int main(int argc, char **argv) {
 
         // Pointer to memory for hosts pixels
         float* hPixels = (float*)malloc(size);
-        if (hPixels == NULL)
-        {
+        if (hPixels == NULL) {
                 fprintf(stderr, "Failed to allocate host vectors!\n");
                 exit(EXIT_FAILURE);
         }
@@ -106,13 +106,13 @@ int main(int argc, char **argv) {
 
         // Copying results back to host
         err = cudaMemcpy(hPixels, dPixels, size, cudaMemcpyDeviceToHost);
-        check_error(err, "Failed to copy d_result to Host");
+        check_error(err, "Failed to copy dPixels to Host");
 
         set_pixels(height, width, hPixels, bmp);
 
         // Attempting to save new file
         if (bmp_save(bmp, FILENAME) == 0) {
-                fprintf(stderr, "Failed to save bmp file (error code %s)!\n",
+                fprintf(stderr, "Failed to save bmp file: %s\n",
                         cudaGetErrorString(err));
         }
 
